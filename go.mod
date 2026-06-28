@@ -9,6 +9,7 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/smallnest/ringbuffer v0.1.1
 	github.com/vimeo/dials v1.20.0
+	golang.org/x/sync v0.21.0
 )
 
 require (

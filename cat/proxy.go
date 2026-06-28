@@ -3,6 +3,7 @@ package cat
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"strings"
@@ -121,6 +122,7 @@ func (p *Proxy) handleClient(ctx context.Context, conn net.Conn) {
 		p.mu.Lock()
 		delete(p.clients, conn)
 		p.mu.Unlock()
+		close(sendCh) // safe: removed from map so no new senders; stops the writer goroutine
 		log.Info().Str("client", remote).Msg("CAT client disconnected")
 	}()
 
@@ -171,8 +173,12 @@ func (p *Proxy) handleClient(ctx context.Context, conn net.Conn) {
 					log.Debug().Msg("PTT ON from CAT client")
 					toK4 = append(toK4, cmd...)
 				case "TX/;":
-					// Toggle PTT
-					p.pttActive.Store(!p.pttActive.Load())
+					for {
+						old := p.pttActive.Load()
+						if p.pttActive.CompareAndSwap(old, !old) {
+							break
+						}
+					}
 					toK4 = append(toK4, cmd...)
 				case "RX;":
 					p.pttActive.Store(false)
@@ -216,7 +222,7 @@ func (p *Proxy) handleClient(ctx context.Context, conn net.Conn) {
 			}
 		}
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				log.Debug().Err(err).Str("client", remote).Msg("CAT client read error")
 			}
 			return

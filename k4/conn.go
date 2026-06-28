@@ -10,6 +10,7 @@ import (
 	"time"
 
 	log "github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 )
 
 // pingInterval matches QK4's PING_INTERVAL_MS.
@@ -88,28 +89,21 @@ func Dial(ctx context.Context, addr string, passphrase string, slTier int) (*Con
 }
 
 // Run starts the read, write, and ping loops, blocking until the connection closes or ctx is done.
-// It always closes the underlying TCP connection before returning.
+// It always closes the underlying TCP connection and the RXCh/CATCh channels before returning.
 func (c *Conn) Run(ctx context.Context) error {
-	errCh := make(chan error, 3)
-
-	go func() { errCh <- c.readLoop(ctx) }()
-	go func() { errCh <- c.writeLoop(ctx) }()
-	go func() { errCh <- c.pingLoop(ctx) }()
-
-	var firstErr error
-	select {
-	case firstErr = <-errCh:
+	g, runCtx := errgroup.WithContext(ctx)
+	g.Go(func() error { return c.readLoop(runCtx) })
+	g.Go(func() error { return c.writeLoop(runCtx) })
+	g.Go(func() error { return c.pingLoop(runCtx) })
+	g.Go(func() error {
+		<-runCtx.Done()
 		c.conn.Close()
-		<-errCh
-		<-errCh
-	case <-ctx.Done():
-		c.conn.Close()
-		<-errCh
-		<-errCh
-		<-errCh
-		firstErr = ctx.Err()
-	}
-	return firstErr
+		return nil
+	})
+	err := g.Wait()
+	close(c.RXCh)
+	close(c.CATCh)
+	return err
 }
 
 // pingLoop sends PING<timestamp>; every second to keep the K4 from closing the connection.

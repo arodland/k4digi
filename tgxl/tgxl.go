@@ -44,9 +44,9 @@ func connect(ctx context.Context, addr string, sendCAT func(context.Context, str
 		Prefix:  "state",
 		Updates: updates,
 	})
-	defer client.Close()
 
 	// Close the client when our context (or parent ctx) is done.
+	// connCancel() (via defer) triggers this goroutine on return.
 	go func() {
 		<-connCtx.Done()
 		client.Close()

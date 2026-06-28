@@ -43,7 +43,10 @@ func TXLoop(ctx context.Context, pipe *os.File, writeCh chan<- []byte, slTier in
 				return
 			}
 			if n > 0 {
-				rb.Write(readBuf[:n])
+				written, werr := rb.Write(readBuf[:n])
+				if werr != nil || written < n {
+					log.Warn().Int("written", written).Int("wanted", n).Msg("TX ring buffer full, audio dropped")
+				}
 			}
 			select {
 			case <-stop:
@@ -54,10 +57,6 @@ func TXLoop(ctx context.Context, pipe *os.File, writeCh chan<- []byte, slTier in
 	}()
 
 	for {
-		if ctx.Err() != nil {
-			return
-		}
-
 		ptt := isPTT()
 		if ptt && !lastPTT {
 			// PTT rising edge: reset sequence counter so the K4 sees a fresh stream.
@@ -66,7 +65,11 @@ func TXLoop(ctx context.Context, pipe *os.File, writeCh chan<- []byte, slTier in
 		lastPTT = ptt
 
 		if rb.Length() < bytesPerFrame {
-			time.Sleep(1 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(1 * time.Millisecond):
+			}
 			continue
 		}
 

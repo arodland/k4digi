@@ -62,7 +62,7 @@ func CreatePipeSource(pc *pulse.Client, name, desc string, sampleRate, channels 
 		return nil, fmt.Errorf("load module-pipe-source: %w", err)
 	}
 
-	f, err := os.OpenFile(pipePath, os.O_RDWR, 0755)
+	f, err := os.OpenFile(pipePath, os.O_RDWR, 0)
 	if err != nil {
 		unloadModule(pc, resp.ModuleIndex)
 		return nil, fmt.Errorf("open pipe %s: %w", pipePath, err)
@@ -96,7 +96,7 @@ func CreatePipeSink(pc *pulse.Client, name, desc string, sampleRate, channels in
 		return nil, fmt.Errorf("load module-pipe-sink: %w", err)
 	}
 
-	f, err := os.OpenFile(pipePath, os.O_RDONLY, 0755)
+	f, err := os.OpenFile(pipePath, os.O_RDONLY, 0)
 	if err != nil {
 		unloadModule(pc, resp.ModuleIndex)
 		return nil, fmt.Errorf("open pipe %s: %w", pipePath, err)

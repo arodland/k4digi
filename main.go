@@ -158,9 +158,9 @@ func main() {
 
 		shouldConsume := cfg.Audio.Consume == "true"
 		if cfg.Audio.Consume == "auto" {
-			isPW, err := pulsedev.IsPipeWire(pc)
-			if err != nil {
-				log.Warn().Err(err).Msg("Could not detect PA server type; skipping self-consumer")
+			isPW, pwErr := pulsedev.IsPipeWire(pc)
+			if pwErr != nil {
+				log.Warn().Err(pwErr).Msg("Could not detect PA server type; skipping self-consumer")
 			} else {
 				shouldConsume = isPW
 			}
